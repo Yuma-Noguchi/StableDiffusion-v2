@@ -47,7 +47,7 @@ namespace StableDiffusion.ML.OnnxRuntime
                     sessionOptions.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
                     sessionOptions.EnableMemoryPattern = false;
                     sessionOptions.AppendExecutionProvider_DML(deviceId);
-                    sessionOptions.AppendExecutionProvider_CPU();
+
                     return sessionOptions;
                 case ExecutionProvider.Cpu:
                     sessionOptions.AppendExecutionProvider_CPU();

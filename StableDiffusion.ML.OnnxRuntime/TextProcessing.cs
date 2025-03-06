@@ -97,11 +97,22 @@ namespace StableDiffusion.ML.OnnxRuntime
             // Run inference.
             var encoded = _encodeSession.Run(input);
 
-            var lastHiddenState = (encoded.ToList().First().Value as IEnumerable<T>).ToArray();
-            var lastHiddenStateTensor = TensorHelper.CreateTensor(lastHiddenState.ToArray(), new[] { 1, 77, 768 });
-
-            return lastHiddenStateTensor;
-
+            if (typeof(T) == typeof(Half))
+            {
+                // When T is Half, convert from Float16
+                var float16Data = (encoded.ToList().First().Value as IEnumerable<Float16>).ToArray();
+                var halfArray = new Half[float16Data.Length];
+                for (int i = 0; i < float16Data.Length; i++)
+                {
+                    halfArray[i] = (Half)(float)float16Data[i];
+                }
+                return TensorHelper.CreateTensor<T>((T[])(object)halfArray, new[] { 1, 77, 768 });
+            }
+            else
+            {
+                var lastHiddenState = (encoded.ToList().First().Value as IEnumerable<T>).ToArray();
+                return TensorHelper.CreateTensor(lastHiddenState.ToArray(), new[] { 1, 77, 768 });
+            }
         }
 
     }

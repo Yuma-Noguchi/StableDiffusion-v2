@@ -1,5 +1,7 @@
-﻿using Microsoft.ML.OnnxRuntime.Tensors;
+﻿using Microsoft.ML.OnnxRuntime;
+using Microsoft.ML.OnnxRuntime.Tensors;
 using NumSharp;
+using System;
 
 namespace StableDiffusion.ML.OnnxRuntime
 {
@@ -79,13 +81,13 @@ namespace StableDiffusion.ML.OnnxRuntime
         public abstract float[] SetTimesteps(int num_inference_steps);
 
         public abstract DenseTensor<float> Step(
-               DenseTensor<Float16> modelOutput,
+               DenseTensor<float> modelOutput,
                float timestep,
                DenseTensor<float> sample,
                int order = 4);
 
         public abstract DenseTensor<float> Step(
-               DenseTensor<float> modelOutput,
+               DenseTensor<Float16> modelOutput,
                float timestep,
                DenseTensor<float> sample,
                int order = 4);

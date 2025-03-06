@@ -1,8 +1,9 @@
-﻿using Microsoft.ML.OnnxRuntime;
+﻿﻿﻿﻿﻿﻿using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp;
 using System.Diagnostics;
+using System;
 
 namespace StableDiffusion.ML.OnnxRuntime
 {
@@ -43,15 +44,17 @@ namespace StableDiffusion.ML.OnnxRuntime
         public static List<NamedOnnxValue> CreateUnetModelInput<T>(DenseTensor<T> encoderHiddenStates, DenseTensor<float> sample, float timeStep)
         {
             var sampleFloat16 = TensorHelper.ConvertFloatToFloat16(sample);
-
+            
+            // Create a timestep tensor with explicit dimensions
+            var timestepTensor = new DenseTensor<Float16>(new Float16[] { (Float16)timeStep }, new[] { 1 });
+            
             var input = new List<NamedOnnxValue> {
                 NamedOnnxValue.CreateFromTensor<T>("encoder_hidden_states", encoderHiddenStates),
                 NamedOnnxValue.CreateFromTensor<Float16>("sample", sampleFloat16),
-                NamedOnnxValue.CreateFromTensor("timestep", new DenseTensor<Float16>(new Float16[] { BitConverter.HalfToUInt16Bits((Half)timeStep) }, new int[] { 1 }))
+                NamedOnnxValue.CreateFromTensor<Float16>("timestep", timestepTensor)
             };
             
             return input;
-
         }
 
         public static DenseTensor<float> GenerateLatentSample(StableDiffusionConfig config, int seed, float initNoiseSigma)
@@ -105,9 +108,9 @@ namespace StableDiffusion.ML.OnnxRuntime
 
             for (int i = 0; i < halfSize; i++)
             {
-                var noisePredVal = (float)BitConverter.UInt16BitsToHalf(noisePred[i]);
-                var noisePredTextVal = (float)BitConverter.UInt16BitsToHalf(noisePredText[i]);
-                noisePred[i] = BitConverter.HalfToUInt16Bits((Half)(noisePredVal + guidanceScale * (noisePredTextVal - noisePredVal)));
+                var noisePredVal = (float)noisePred[i];
+                var noisePredTextVal = (float)noisePredText[i];
+                noisePred[i] = (Float16)(noisePredVal + guidanceScale * (noisePredTextVal - noisePredVal));
             };
         }
 
@@ -169,7 +172,7 @@ namespace StableDiffusion.ML.OnnxRuntime
             // latents = 1 / 0.18215 * latents
             latents = TensorHelper.MultipleTensorByFloat(latents.ToArray(), (float)(1.0f / 0.18215f), latents.Dimensions.ToArray());
             var latentsFloat16 = TensorHelper.ConvertFloatToFloat16(latents);
-            var decoderInput = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor("latent_sample", latentsFloat16) };
+            var decoderInput = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor<Float16>("latent_sample", latentsFloat16) };
 
             // Decode image
             var imageResultTensor = _decoder.Decode(decoderInput);

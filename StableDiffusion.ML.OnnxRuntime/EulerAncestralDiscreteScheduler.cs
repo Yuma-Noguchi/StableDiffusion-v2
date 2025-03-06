@@ -1,5 +1,7 @@
-﻿using Microsoft.ML.OnnxRuntime.Tensors;
+﻿using Microsoft.ML.OnnxRuntime;
+using Microsoft.ML.OnnxRuntime.Tensors;
 using NumSharp;
+using System;
 
 namespace StableDiffusion.ML.OnnxRuntime
 {
@@ -92,10 +94,30 @@ namespace StableDiffusion.ML.OnnxRuntime
            DenseTensor<float> sample,
            int order = 4)
         {
-            throw new NotImplementedException();
+            if (!this.is_scale_input_called)
+            {
+                Console.WriteLine(
+                    "The `scale_model_input` function should be called before `step` to ensure correct denoising. " +
+                    "See `StableDiffusionPipeline` for a usage example."
+                );
+            }
+
+            int stepIndex = this.Timesteps.IndexOf((float)timestep);
+            var sigma = this.Sigmas[stepIndex];
+            
+            // Convert Half tensor to float tensor
+            var floatModelOutput = new DenseTensor<float>(modelOutput.Dimensions);
+            for (int i = 0; i < modelOutput.Length; i++)
+            {
+                floatModelOutput.SetValue(i, (float)modelOutput.GetValue(i));
+            }
+
+            // Use the float version of Step
+            return Step(floatModelOutput, timestep, sample, order);
         }
 
-        public override DenseTensor<float> Step(DenseTensor<float> modelOutput,
+        public override DenseTensor<float> Step(
+                DenseTensor<float> modelOutput,
                float timestep,
                DenseTensor<float> sample,
                int order = 4)

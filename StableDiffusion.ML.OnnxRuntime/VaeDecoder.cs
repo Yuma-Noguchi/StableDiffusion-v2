@@ -2,6 +2,7 @@
 using Microsoft.ML.OnnxRuntime.Tensors;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp;
+using System;
 
 namespace StableDiffusion.ML.OnnxRuntime
 {

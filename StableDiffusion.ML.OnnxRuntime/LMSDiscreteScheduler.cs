@@ -1,8 +1,9 @@
-﻿using Microsoft.ML.OnnxRuntime.Tensors;
+﻿﻿﻿using Microsoft.ML.OnnxRuntime.Tensors;
 using MathNet.Numerics;
 using NumSharp;
 using System.Runtime.Serialization.Formatters;
 using System.Diagnostics;
+using Microsoft.ML.OnnxRuntime;
 
 namespace StableDiffusion.ML.OnnxRuntime
 {
@@ -150,19 +151,10 @@ namespace StableDiffusion.ML.OnnxRuntime
         }
 
         public override DenseTensor<float> Step(
-           DenseTensor<float> modelOutput,
+           DenseTensor<Float16> modelOutput,
            float timestep,
            DenseTensor<float> sample,
            int order = 4)
-        {
-            throw new NotImplementedException();
-        }
-
-        public override DenseTensor<float> Step(
-               DenseTensor<Float16> modelOutput,
-               float timestep,
-               DenseTensor<float> sample,
-               int order = 4)
         {
             var sws = new Stopwatch[22].Select(h => new Stopwatch()).ToArray();
 
@@ -185,18 +177,15 @@ namespace StableDiffusion.ML.OnnxRuntime
 
             if (this._predictionType == "epsilon")
             {
-
                 for (int i=0; i < noisePredLength; i++)
                 {
-                    predOriginalSampleArray[i] = (float)(sampleSpan[i] - sigma * (float)BitConverter.UInt16BitsToHalf(modelOutputSpan[i]));
+                    predOriginalSampleArray[i] = sampleSpan[i] - sigma * (float)modelOutputSpan[i];
                 }
 
                 predOriginalSample = TensorHelper.CreateTensor(predOriginalSampleArray, dims);
-
             }
             else if (this._predictionType == "v_prediction")
             {
-                //predOriginalSample = modelOutput * ((-sigma / Math.Sqrt((Math.Pow(sigma,2) + 1))) + (sample / (Math.Pow(sigma,2) + 1)));
                 throw new Exception($"prediction_type given as {this._predictionType} not implemented yet.");
             }
             else
@@ -206,21 +195,18 @@ namespace StableDiffusion.ML.OnnxRuntime
 
             // 2. Convert to an ODE derivative
             var derivativeItems = new DenseTensor<float>(sample.Dimensions.ToArray());
-
             var derivativeItemsArray = new float[derivativeItems.Length];
 
             for (int i = 0; i < noisePredLength; i++)
             {
-                //predOriginalSample = (sample - predOriginalSample) / sigma;
-                derivativeItemsArray[i] = (float)((sampleSpan[i] - predOriginalSampleArray[i]) / sigma);
+                derivativeItemsArray[i] = ((float)sampleSpan[i] - predOriginalSampleArray[i]) / sigma;
             };
-            derivativeItems =  TensorHelper.CreateTensor(derivativeItemsArray, derivativeItems.Dimensions.ToArray());
+            derivativeItems = TensorHelper.CreateTensor(derivativeItemsArray, derivativeItems.Dimensions.ToArray());
 
             this.Derivatives?.Add(derivativeItems);
 
             if (this.Derivatives?.Count() > order)
             {
-                // remove first element
                 this.Derivatives?.RemoveAt(0);
             }
 
@@ -228,30 +214,29 @@ namespace StableDiffusion.ML.OnnxRuntime
             var lmsCoeffs = _lmsCoefficients[stepIndex];
 
             // 4. compute previous sample based on the derivative path
-            // Reverse list of tensors this.derivatives
             var revDerivatives = Enumerable.Reverse(this.Derivatives).ToList();
-
-            // Create list of tuples from the lmsCoeffs and reversed derivatives
             var lmsCoeffsAndDerivatives = lmsCoeffs.Zip(revDerivatives, (lmsCoeff, derivative) => (lmsCoeff, derivative));
-
-            // Create tensor for product of lmscoeffs and derivatives
             var lmsDerProduct = new Tensor<float>[this.Derivatives.Count()];
 
             for(int m = 0; m < lmsCoeffsAndDerivatives.Count(); m++)
             {
                 var item = lmsCoeffsAndDerivatives.ElementAt(m);
-                // Multiply to coeff by each derivatives to create the new tensors
                 lmsDerProduct[m] = TensorHelper.MultipleTensorByFloat(item.derivative.ToArray(),(float)item.lmsCoeff, item.derivative.Dimensions.ToArray());
             }
-            // Sum the tensors
             var sumTensor = TensorHelper.SumTensors(lmsDerProduct, new[] { 1, 4, 64, 64 });
-
-            // Add the sumed tensor to the sample
             var prevSample = TensorHelper.AddTensors(sample.ToArray(), sumTensor.ToArray(), sample.Dimensions.ToArray());
-
+            
             Console.WriteLine(prevSample[0]);
             return prevSample;
+        }
 
+        public override DenseTensor<float> Step(
+               DenseTensor<float> modelOutput,
+               float timestep,
+               DenseTensor<float> sample,
+               int order = 4)
+        {
+            throw new NotImplementedException();
         }
     }
 }

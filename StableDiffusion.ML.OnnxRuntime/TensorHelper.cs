@@ -1,4 +1,5 @@
-﻿using Microsoft.ML.OnnxRuntime.Tensors;
+﻿using Microsoft.ML.OnnxRuntime;
+using Microsoft.ML.OnnxRuntime.Tensors;
 using Newtonsoft.Json.Linq;
 using System;
 
@@ -8,19 +9,18 @@ namespace StableDiffusion.ML.OnnxRuntime
     {
         public static DenseTensor<T> CreateTensor<T>(T[] data, int[] dimensions)
         {
-            return new DenseTensor<T>(data, dimensions); ;
+            return new DenseTensor<T>(data, dimensions);
         }
-        // function to cover float to float16 tensor
+
         public static DenseTensor<Float16> ConvertFloatToFloat16(DenseTensor<float> tensor)
         {
             ReadOnlySpan<float> fp32Values = tensor.Buffer.Span;
-
             DenseTensor<Float16> fp16Tensor = new DenseTensor<Float16>(tensor.Dimensions);
             Span<Float16> fp16Values = fp16Tensor.Buffer.Span;
 
             for (int i = 0; i < fp32Values.Length; i++)
             {
-                fp16Values[i] = BitConverter.HalfToUInt16Bits((Half)fp32Values[i]);
+                fp16Values[i] = (Float16)fp32Values[i];
             }
 
             return fp16Tensor;
@@ -56,7 +56,7 @@ namespace StableDiffusion.ML.OnnxRuntime
             {
                 sample[i] = (float)(sample[i] + sumTensor[i]);
             }
-            return CreateTensor(sample, dimensions); ;
+            return CreateTensor(sample, dimensions);
         }
 
         public static DenseTensor<float> AddTensors(Tensor<float> sample, Tensor<float> sumTensor)
@@ -119,9 +119,7 @@ namespace StableDiffusion.ML.OnnxRuntime
             }
 
             latents = TensorHelper.CreateTensor(latentsArray, latents.Dimensions.ToArray());
-
             return latents;
-
         }
 
         public static DenseTensor<float> ConvertFloat16ToFloat(DenseTensor<Float16>? result)
@@ -132,7 +130,7 @@ namespace StableDiffusion.ML.OnnxRuntime
 
             for (int i = 0; i < floatSpan.Length; i++)
             {
-                floatSpan[i] = (float)BitConverter.UInt16BitsToHalf(float16Array[i]);
+                floatSpan[i] = (float)float16Array[i];
             }
 
             return floatTensor;
